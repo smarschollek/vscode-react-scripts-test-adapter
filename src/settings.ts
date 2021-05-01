@@ -7,11 +7,11 @@ function getOrDefault(section: string, fallback: string) {
   return value;
 }
 
-export function getDescribeRegex(): RegExp {
-  const text = getOrDefault("testRegex", "");
-  if (text !== "") return new RegExp(text, "gm");
-  return new RegExp(/describe\(\'(?<describe>([^\>]*))\',/, "gm");
-}
+// export function getDescribeRegex(): RegExp {
+//   const text = getOrDefault("testRegex", "");
+//   if (text !== "") return new RegExp(text, "gm");
+//   return new RegExp(/describe\(\'(?<describe>([^\>]*))\',/, "gm");
+// }
 
 export function getTestRegex(): RegExp {
   const text = getOrDefault("testRegex", "");

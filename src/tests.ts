@@ -1,10 +1,10 @@
 import { TestEvent, TestInfo, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo } from "vscode-test-adapter-api";
 import * as settings from "./settings";
-import {relative, parse} from "path";
+import {relative} from "path";
 import {readFile} from "fs";
 import {promisify} from "util";
-import {Runner} from './runner'
-import { debug, EventEmitter, Uri, workspace } from "vscode";
+import {DebugRunner, TestRunner} from './runner'
+import { EventEmitter, Uri, workspace } from "vscode";
 
 const reactScriptsSuite: TestSuiteInfo = {
   type: "suite",
@@ -67,7 +67,7 @@ function parseTests(content: string, file: Uri, testSuite: TestSuiteInfo) {
 }
 
 export async function runTests(tests: string[], testStatesEmitter: EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>): Promise<void> {
-    for (const suiteOrTestId of tests) {
+    for (const suiteOrTestId of tests.reverse()) {
       const node = findNode(reactScriptsSuite, suiteOrTestId);
       if (node) {
         await runNode(node, testStatesEmitter);
@@ -99,28 +99,14 @@ async function runNode(node: TestSuiteInfo | TestInfo, testStatesEmitter: EventE
     else {
       runTest(node, testStatesEmitter);
     }
-    
+    testStatesEmitter.fire(<TestEvent>{ type: "test", test: node.id, state: "running" });
 	}
 }
 
 async function runTest(node: TestInfo, testStatesEmitter: EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>): Promise<void> {
-  if(!node.file) {
-    console.error("Test does not specify test file", node);
-    testStatesEmitter.fire(<TestEvent>{ type: "test", test: node.id, state: "skipped" });
-		return;
-  }
-
   testStatesEmitter.fire(<TestEvent>{ type: "test", test: node.id, state: "running" });
-
-  const file = Uri.file(node.file);
-  const result = await Runner(file);
-
-  if(result) {
-    testStatesEmitter.fire(<TestEvent>{ type: "test", test: node.id, state: "passed" });
-  }
-  else {
-    testStatesEmitter.fire(<TestEvent>{ type: "test", test: node.id, state: "failed" });
-  }
+  const result = await TestRunner(node);
+  testStatesEmitter.fire(<TestEvent>{ type: "test", test: node.id, state: result });
 }
 
 export async function debugTests(tests: string[], testStatesEmitter: EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>): Promise<void> {
@@ -133,32 +119,6 @@ export async function debugTests(tests: string[], testStatesEmitter: EventEmitte
 }
 
 async function debugTest(node: TestInfo, testStatesEmitter: EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>): Promise<void> {
-  if(!node.file) {
-    console.error("Test does not specify test file", node);
-    testStatesEmitter.fire(<TestEvent>{ type: "test", test: node.id, state: "skipped" });
-		return;
-  }
-
-  testStatesEmitter.fire(<TestEvent>{ type: "test", test: node.id, state: "running" });
-
-  const file = Uri.file(node.file);
-  const workspaceFolder = workspace.getWorkspaceFolder(file);
-  const cleanedFileName = parse(file.fsPath).base;
-
-  debug.startDebugging(workspaceFolder, {
-    name: 'Debug Test',
-    type: 'node',
-    request: 'launch',
-    args: [
-      'test',
-      cleanedFileName,
-      '--runInBand',
-      '--no-cache',
-      '--watchAll=false'
-    ],
-    protocol: 'inspector',
-    console: 'integratedTerminal',
-    internalConsoleOptions: 'neverOpen',
-    runtimeExecutable: `\${workspaceFolder}\\node_modules\\.bin\\react-scripts`,
-  });
+  const result = await DebugRunner(node);
+  testStatesEmitter.fire(<TestEvent>{ type: "test", test: node.id, state: result });
 }

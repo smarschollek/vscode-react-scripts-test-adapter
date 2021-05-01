@@ -3,10 +3,6 @@ import { TestAdapter, TestLoadStartedEvent, TestLoadFinishedEvent, TestRunStarte
 import { Log } from 'vscode-test-adapter-util';
 import { debugTests, loadTests, runTests } from './tests';
 
-/**
- * This class is intended as a starting point for implementing a "real" TestAdapter.
- * The file `README.md` contains further instructions.
- */
 export class ReactScriptsAdapter implements TestAdapter {
 
 	private disposables: { dispose(): void }[] = [];
@@ -39,16 +35,12 @@ export class ReactScriptsAdapter implements TestAdapter {
 	}
 
 	async run(tests: string[]): Promise<void> {
-		this.testStatesEmitter.fire(<TestRunStartedEvent>{ type: 'started', tests });
-		// in a "real" TestAdapter this would start a test run in a child process
 		runTests(tests, this.testStatesEmitter);
-
-		this.testStatesEmitter.fire(<TestRunFinishedEvent>{ type: 'finished' });
 	}
 
 
 	async debug(tests: string[]): Promise<void> {
-		await debugTests(tests, this.testStatesEmitter);
+		debugTests(tests, this.testStatesEmitter);
 	}
 
 
