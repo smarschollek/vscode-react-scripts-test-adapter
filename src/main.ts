@@ -34,6 +34,6 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 const checkForReactScripts = async () : Promise<boolean> => {
-  const files = await vscode.workspace.findFiles('./node_modules/.bin/react-scripts');
+  const files = await vscode.workspace.findFiles('*node_modules/.bin/react-scripts');
   return files.length > 0
 }
