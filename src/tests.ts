@@ -20,7 +20,7 @@ export async function loadTests(): Promise<TestSuiteInfo> {
   const files = await (await workspace.findFiles(testGlob)).sort((a,b) => a.path < b.path ? 1 : -1);
 
   reactScriptsSuite.children = []
-  
+
   for (const file of files) { 
     const workspaceFolder = workspace.getWorkspaceFolder(file);
 		if (!workspaceFolder) {

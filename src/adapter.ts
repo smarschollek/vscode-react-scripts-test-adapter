@@ -45,8 +45,7 @@ export class ReactScriptsAdapter implements TestAdapter {
 
 
 	cancel(): void {
-		// in a "real" TestAdapter this would kill the child process for the current test run (if there is any)
-		throw new Error("Method not implemented.");
+		//throw new Error("Method not implemented.");
 	}
 
 	dispose(): void {

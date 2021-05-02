@@ -16,6 +16,11 @@ export async function activate(context: vscode.ExtensionContext) {
 	if (log.enabled) log.info(`Test Explorer ${testExplorerExtension ? '' : 'not '}found`);
 
 	if (testExplorerExtension) {
+		const reactScripts = await checkForReactScripts();
+		if (log.enabled) log.info(`react-scripts ${reactScripts ? '' : 'not '}found`);
+		if(!reactScripts) {
+			return
+		}
 
 		const testHub = testExplorerExtension.exports;
 
@@ -26,4 +31,9 @@ export async function activate(context: vscode.ExtensionContext) {
 			log
 		));
 	}
+}
+
+const checkForReactScripts = async () : Promise<boolean> => {
+  const files = await vscode.workspace.findFiles('./node_modules/.bin/react-scripts');
+  return files.length > 0
 }
