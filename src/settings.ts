@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 
 function getOrDefault(section: string, fallback: string) {
-  const config = vscode.workspace.getConfiguration("React-scripts Test Adapter");
+  const config = vscode.workspace.getConfiguration("reactScriptsTestAdapter");
   const value = config.get<string>(section);
   if (!value || value === "") return fallback;
   return value;

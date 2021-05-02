@@ -56,13 +56,28 @@
       "type": "object",
       "title": "React-scripts Test Adapter",
       "properties": {
-        "exampleExplorer.logpanel": {
+        "reactScriptsTestAdapter.logpanel": {
           "description": "write diagnotic logs to an output panel",
           "type": "boolean",
           "scope": "resource"
         },
-        "exampleExplorer.logfile": {
+        "reactScriptsTestAdapter.logfile": {
           "description": "write diagnostic logs to the given file",
+          "type": "string",
+          "scope": "resource"
+        },
+        "reactScriptsTestAdapter.testRegex": {
+          "description": "regex to find tests in files. Default: /test\\(\\'(?<test>([^\\>]*))\\',/",
+          "type": "string",
+          "scope": "resource"
+        },
+        "reactScriptsTestAdapter.testGlob": {
+          "description": "Glob used to find tests files. Default: src/**/*test.{js,jsx,ts,tsx}",
+          "type": "string",
+          "scope": "resource"
+        },
+        "reactScriptsTestAdapter.testEncoding": {
+          "description": "Test file encoding. Defaults: 'utf8'",
           "type": "string",
           "scope": "resource"
         }
