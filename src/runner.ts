@@ -1,32 +1,29 @@
-import { debug, Uri, workspace } from "vscode"
+import { debug, Uri, workspace, WorkspaceFolder } from "vscode"
 import {spawn} from "child_process"
+import {parse} from 'path'
 import { TestInfo } from "vscode-test-adapter-api"
 
 export const  TestRunner = async (node: TestInfo) : Promise<'skipped'|'passed'|'failed'> => {
   return new Promise<'skipped'|'passed'|'failed'>((resolve, reject) => {
-    if(!node.file) {    
-      resolve('skipped');
-      return;
-    }
+    const tuple = getWorkspaceAndFileName(node)
 
-    const file = Uri.file(node.file);
-    const workspaceFolder = workspace.getWorkspaceFolder(file);
-    if(!workspaceFolder) {
+    if(!tuple.workspaceFolder) {
       resolve('skipped');
       return
     }
 
-    const lua = spawn('node', [
+    const process = spawn('node', [
       '.\\node_modules\\react-scripts\\bin\\react-scripts.js', 
       'test', 
+      tuple.fileName,
       '--testNamePattern=' + fixPattern(node),
       '--watchAll=false', 
       '--no-cache'
     ], {
-      cwd: workspaceFolder.uri.fsPath
+      cwd: tuple.workspaceFolder.uri.fsPath
     })
 
-    lua.on('close', (code) => {
+    process.on('close', (code) => {
       if(code == 0) {
         resolve('passed');
       }
@@ -37,23 +34,33 @@ export const  TestRunner = async (node: TestInfo) : Promise<'skipped'|'passed'|'
   })
 }
 
-
-export const  DebugRunner = async (node: TestInfo) : Promise<'skipped'|'passed'|'failed'> => {
-  return new Promise<'skipped'|'passed'|'failed'>((resolve, reject) => {
-    if(!node.file) {    
-      resolve('skipped');
-      return;
+const getWorkspaceAndFileName = (node: TestInfo): {fileName: string, workspaceFolder: WorkspaceFolder | undefined} => {
+    if(!node.file) {
+      return { fileName : '', workspaceFolder: undefined }
     }
-    
-    const file = Uri.file(node.file);
-    const workspaceFolder = workspace.getWorkspaceFolder(file);
-      
-    debug.startDebugging(workspaceFolder, {
+
+    const fileName = parse(node.file).base
+    const workSpaceFolder = workspace.getWorkspaceFolder(Uri.file(node.file));
+    return { fileName , workspaceFolder: workSpaceFolder }
+
+}
+
+export const DebugRunner = async (node: TestInfo) : Promise<'skipped'|'passed'|'failed'> => {
+  return new Promise<'skipped'|'passed'|'failed'>((resolve, reject) => {
+    const tuple = getWorkspaceAndFileName(node)
+
+    if(!tuple.workspaceFolder) {
+      resolve('skipped');
+      return
+    }
+
+    debug.startDebugging(tuple.workspaceFolder, {
       name: 'react-scripts-test-adapter',
       type: 'node',
       request: 'launch',
       args: [
         'test',
+        tuple.fileName,
         '-t=' + fixPattern(node),
         '--bail',
         '--runInBand',
@@ -71,8 +78,6 @@ export const  DebugRunner = async (node: TestInfo) : Promise<'skipped'|'passed'|
     })
   })
 }
-
-
 
 function fixPattern(node: TestInfo) {
   let value = node.label;
