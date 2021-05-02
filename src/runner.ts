@@ -54,7 +54,7 @@ export const  DebugRunner = async (node: TestInfo) : Promise<'skipped'|'passed'|
       request: 'launch',
       args: [
         'test',
-        '--testNamePattern=' + fixPattern(node),
+        '-t=' + fixPattern(node),
         '--bail',
         '--runInBand',
         '--no-cache',
@@ -77,7 +77,7 @@ export const  DebugRunner = async (node: TestInfo) : Promise<'skipped'|'passed'|
 function fixPattern(node: TestInfo) {
   let value = node.label;
   do {
-    value = value.replace(' ', '.');
+    value = value.replace(' ', '\\s');
   }while(value.indexOf(' ') !== -1);
-  return value;
+  return value + "$";
 }
