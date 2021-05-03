@@ -1,7 +1,7 @@
 import { EventEmitter, Uri, workspace } from "vscode";
 import { TestEvent, TestInfo, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo } from "vscode-test-adapter-api";
 import * as settings from "./settings";
-import {relative, parse} from "path";
+import {relative} from "path";
 import {readFile} from "fs";
 import {promisify} from "util";
 import { DebugRunner, TestRunner } from "./runner";
@@ -10,7 +10,7 @@ export class TestManager {
 
   private _suite: TestSuiteInfo;
   private _testId: number;
-  private readonly _testFileSuffices: string[] = ['.test.js', '.test.jsx', '.test.ts', '.test.tsx'];
+  // private readonly _testFileSuffices: string[] = ['.test.js', '.test.jsx', '.test.ts', '.test.tsx'];
 
   constructor() {
     this._suite = {
@@ -85,18 +85,18 @@ export class TestManager {
   //     return "";
   // }
 
-  private getMatchingTestFile(file: string) : string | undefined {
-    if(file.endsWith('.tsx'))    
-      return file.replace('.tsx', '.test.tsx');
-    if(file.endsWith('.ts'))    
-      return file.replace('.ts', '.test.ts');
-    if(file.endsWith('.jsx'))    
-      return file.replace('.jsx', '.test.jsx');
-    if(file.endsWith('.js'))    
-      return file.replace('.js', '.test.js');
+  // private getMatchingTestFile(file: string) : string | undefined {
+  //   if(file.endsWith('.tsx'))    
+  //     return file.replace('.tsx', '.test.tsx');
+  //   if(file.endsWith('.ts'))    
+  //     return file.replace('.ts', '.test.ts');
+  //   if(file.endsWith('.jsx'))    
+  //     return file.replace('.jsx', '.test.jsx');
+  //   if(file.endsWith('.js'))    
+  //     return file.replace('.js', '.test.js');
 
-    return undefined
-  }
+  //   return undefined
+  // }
 
   private findNode(searchNode: TestSuiteInfo | TestInfo, id: string): TestSuiteInfo | TestInfo | undefined {
     if (searchNode.id === id) {

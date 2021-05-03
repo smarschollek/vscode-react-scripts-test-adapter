@@ -5,7 +5,7 @@
   "icon": "img/icon.png",
   "author": "Stephan Marschollek <stephan.marschollek@gmail.com>",
   "publisher": "smarschollek",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "license": "MIT",
   "homepage": "https://github.com/smarschollek/vscode-react-script-test-adapter",
   "repository": {

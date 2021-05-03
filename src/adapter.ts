@@ -27,14 +27,9 @@ export class ReactScriptsAdapter implements TestAdapter {
 		this.disposables.push(this.autorunEmitter);
 		this.loadedTests = undefined;
 		
-		// vscode.workspace.onDidSaveTextDocument(document => {
-		// 	if (this.testManager.isTestFile(document.uri)) {
-		// 		this.load();
-		// 	} else if (this.testManager.isApplicationFile(document.uri)) {
-		// 				this.testManager.findMatchingId(document.uri.fsPath);
-		// 				this.retireEmitter.fire({tests: []});
-		// 	}
-		// });
+		vscode.workspace.onDidSaveTextDocument(document => {
+			this.load();
+		});
 	}
 
 	async load(): Promise<void> {
