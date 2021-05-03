@@ -28,7 +28,7 @@ export class TestManager {
       }
     })
     
-    this._root = this.createSuiteInfo(this.workspaceWatcher.workspace.name);
+    this._root = this.createSuiteInfo(this.workspaceWatcher.workspace.name, this.workspaceWatcher.workspace.uri);
     this._suite.children.push(this._root)
     this._testId = 1;
   }
@@ -38,7 +38,7 @@ export class TestManager {
 
     for (const file of this.workspaceWatcher.getTestFiles()) { 
       const suiteId = relative(this.workspaceWatcher.workspace.uri.fsPath, file.fsPath);
-      const suite = this.createSuiteInfo(suiteId);
+      const suite = this.createSuiteInfo(suiteId, file);
 
       suite.children = await this.parseFileContent(file);
       if(suite.children.length > 0) {
@@ -121,11 +121,12 @@ export class TestManager {
       	};
   }
 
-  private createSuiteInfo(suiteId: string) : TestSuiteInfo {
+  private createSuiteInfo(suiteId: string, file: Uri) : TestSuiteInfo {
     return {
       		type: "suite",
       		id: suiteId,
       		label: suiteId,
+          file: file.fsPath,
       		children: []
       	};
   }
