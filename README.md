@@ -12,7 +12,5 @@ Simple test adapter for react-scripts testing in CRA projects
 
 ### Open Issues
 
-* Filewatcher to recognize filechanges inside the workspacefolder
-* Debugging a Suite is not possible atm only sinlge testcases
-* Validate the result when debugging a test ( atm it is just the skipped event )
+* Debugging a Suite is not possible atm only singel testcases
 * Recognize describe functions inside testfiles and build some hierarchie

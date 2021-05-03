@@ -2,6 +2,7 @@ import { debug, Uri, workspace, WorkspaceFolder } from "vscode"
 import {spawn} from "child_process"
 import {parse} from 'path'
 import { TestInfo } from "vscode-test-adapter-api"
+import * as settings from "./settings";
 
 export const  TestRunner = async (node: TestInfo) : Promise<'skipped'|'passed'|'failed'> => {
   return new Promise<'skipped'|'passed'|'failed'>((resolve, reject) => {
@@ -68,14 +69,10 @@ export const DebugRunner = async (node: TestInfo) : Promise<'skipped'|'passed'|'
         '--watchAll=false'
       ],
       protocol: 'inspector',
-      console: 'integratedTerminal',
-      internalConsoleOptions: 'neverOpen',
+      console: settings.getDebugOutput(),
+      internalConsoleOptions: "neverOpen",
       runtimeExecutable: `\${workspaceFolder}\\node_modules\\.bin\\react-scripts`,
     });
-    
-    debug.onDidTerminateDebugSession((debugSession) => {
-      resolve('skipped');
-    })
   })
 }
 

@@ -1,109 +1,90 @@
-import { EventEmitter, Uri, workspace } from "vscode";
-import { TestEvent, TestInfo, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo } from "vscode-test-adapter-api";
+import { EventEmitter, Uri } from "vscode";
+import { RetireEvent, TestEvent, TestInfo, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo } from "vscode-test-adapter-api";
 import * as settings from "./settings";
 import {relative} from "path";
 import {readFile} from "fs";
 import {promisify} from "util";
 import { DebugRunner, TestRunner } from "./runner";
+import { WorkspaceWatcher } from "./WorkspaceWatcher";
 
 export class TestManager {
 
   private _suite: TestSuiteInfo;
   private _testId: number;
-  // private readonly _testFileSuffices: string[] = ['.test.js', '.test.jsx', '.test.ts', '.test.tsx'];
+  private _root: TestSuiteInfo;
 
-  constructor() {
+  constructor(private workspaceWatcher: WorkspaceWatcher, private retireEmiter: EventEmitter<RetireEvent>) {  
     this._suite = {
       type: "suite",
-      id: "root",
-      label: "root",
+      id: 'root',
+      label: 'root',
       children: []
     };
+
+    workspaceWatcher.onTestsRetired((file) => {
+      const node = this.findNodeByFile(this._suite, file.fsPath);
+      if(node) {
+        this.retireEmiter.fire({tests: [node.id]})
+      }
+    })
     
+    this._root = this.createSuiteInfo(this.workspaceWatcher.workspace.name);
+    this._suite.children.push(this._root)
     this._testId = 1;
   }
-
+  
   public async loadTests(): Promise<TestSuiteInfo> {
-    this._suite.children = [];
-    const testGlob = settings.getTestGlob();
-  	const files = await (await workspace.findFiles(testGlob)).sort((a,b) => a.path < b.path ? 1 : -1);
-    for (const file of files) { 
-      const workspaceFolder = workspace.getWorkspaceFolder(file);
-      
-      if (!workspaceFolder) {
-        console.error("Failed to find workspaceFolder");
-        continue;
-      }
+    this._root.children = [];
 
-      const suiteId = relative(workspaceFolder.uri.fsPath, file.fsPath);
+    for (const file of this.workspaceWatcher.getTestFiles()) { 
+      const suiteId = relative(this.workspaceWatcher.workspace.uri.fsPath, file.fsPath);
       const suite = this.createSuiteInfo(suiteId);
 
       suite.children = await this.parseFileContent(file);
       if(suite.children.length > 0) {
-        this._suite.children.push(suite);
+        this._root.children.push(suite);
       }
-  }
+    }
 
-  return this._suite;
+    return this._suite;
   }
 
   public async runTests(tests: string[], testStatesEmitter: EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>): Promise<void> {
     for (const suiteOrTestId of tests) {
-      const node = this.findNode(this._suite, suiteOrTestId);
+      const node = this.findNodeById(this._suite, suiteOrTestId);
       if (node) {
         await this.runTest(node, testStatesEmitter);
       }
     }
   }
 
-  public async debugTests(tests: string[], testStatesEmitter: EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>): Promise<void> {
+  public async debugTests(tests: string[]): Promise<void> {
     for (const suiteOrTestId of tests) {
-      const node = this.findNode(this._suite, suiteOrTestId);
+      const node = this.findNodeById(this._suite, suiteOrTestId);
       if (node) {
-        await this.debugTest(node, testStatesEmitter);
+        await this.debugTest(node);
       }
     }
   }
 
-  // public isTestFile(uri: Uri): boolean {
-  //   this._testFileSuffices.some(suffix => {
-  //     return uri.fsPath.endsWith(suffix)
-  //   })
+  private findNodeByFile(searchNode: TestSuiteInfo | TestInfo, file: string): TestSuiteInfo | TestInfo | undefined {
+    if (searchNode.file === file) {
+      return searchNode;
+    } else if (searchNode.type === 'suite') {
+      for (const child of searchNode.children) {
+        const found = this.findNodeByFile(child, file);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  }
 
-  //   return false;
-  // }
-
-  // public isApplicationFile(uri: Uri):boolean {
-	// 	const workspaceFolder = workspace.getWorkspaceFolder(uri);
-	// 	return !!workspaceFolder
-	// }
-
-  // public findMatchingId(codeFile: string): string {
-  //     const fileName = parse(codeFile).base;
-  //     const testFile = this.getMatchingTestFile(fileName);
-
-  //     return "";
-  // }
-
-  // private getMatchingTestFile(file: string) : string | undefined {
-  //   if(file.endsWith('.tsx'))    
-  //     return file.replace('.tsx', '.test.tsx');
-  //   if(file.endsWith('.ts'))    
-  //     return file.replace('.ts', '.test.ts');
-  //   if(file.endsWith('.jsx'))    
-  //     return file.replace('.jsx', '.test.jsx');
-  //   if(file.endsWith('.js'))    
-  //     return file.replace('.js', '.test.js');
-
-  //   return undefined
-  // }
-
-  private findNode(searchNode: TestSuiteInfo | TestInfo, id: string): TestSuiteInfo | TestInfo | undefined {
+  private findNodeById(searchNode: TestSuiteInfo | TestInfo, id: string): TestSuiteInfo | TestInfo | undefined {
     if (searchNode.id === id) {
       return searchNode;
     } else if (searchNode.type === 'suite') {
       for (const child of searchNode.children) {
-        const found = this.findNode(child, id);
+        const found = this.findNodeById(child, id);
         if (found) return found;
       }
     }
@@ -121,7 +102,6 @@ export class TestManager {
 
     for (let index = 0; index < lines.length; index++) {
       const line = lines[index];
-      
       const match = testRegex.exec(line);
       if(match && match.groups && match.groups["test"]) {
         result.push(this.createTestInfo(this._testId++, file, match.groups["test"], index ));
@@ -162,15 +142,13 @@ export class TestManager {
 	  }
   }
 
-  private async debugTest(node: TestSuiteInfo | TestInfo, testStatesEmitter: EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>): Promise<void> {  
+  private async debugTest(node: TestSuiteInfo | TestInfo): Promise<void> {  
     if (node.type === 'suite') {
 		  // for (const child of node.children) {
 			//   await this.debugTest(child, testStatesEmitter);
 		  // }
 	  } else {
-      testStatesEmitter.fire(<TestEvent>{ type: "test", test: node.id, state: "running" });
-      const result = await DebugRunner(node);
-      testStatesEmitter.fire(<TestEvent>{ type: "test", test: node.id, state: result });
+      await DebugRunner(node);      
 	  }
   }
 }

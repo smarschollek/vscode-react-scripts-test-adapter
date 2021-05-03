@@ -33,6 +33,8 @@
     "publish": "vsce publish"
   },
   "dependencies": {
+    "anymatch": "^3.1.2",
+    "chokidar": "^3.5.1",
     "tslib": "^1.9.3",
     "vscode-test-adapter-api": "^1.7.0",
     "vscode-test-adapter-util": "^0.7.0"
@@ -71,8 +73,18 @@
           "type": "string",
           "scope": "resource"
         },
+        "reactScriptsTestAdapter.baseGlob": {
+          "description": "Glob used specify base for testGlob and watchGlob. Default: src/**/*",
+          "type": "string",
+          "scope": "resource"
+        },
         "reactScriptsTestAdapter.testGlob": {
-          "description": "Glob used to find tests files. Default: src/**/*test.{js,jsx,ts,tsx}",
+          "description": "Glob used to find tests files. Default: .test.{js,jsx,ts,tsx}",
+          "type": "string",
+          "scope": "resource"
+        },
+        "reactScriptsTestAdapter.watchGlob": {
+          "description": "Glob used by the filewatcher. Default: .{js,jsx,ts,tsx}",
           "type": "string",
           "scope": "resource"
         },
@@ -80,6 +92,17 @@
           "description": "Test file encoding. Defaults: 'utf8'",
           "type": "string",
           "scope": "resource"
+        },
+        "reactScriptsTestAdapter.debugOutput": {
+          "description": "Select the output from the Debug process.",
+          "default": "internalConsole",
+          "scope": "resource",
+          "type": "string",
+          "enum": [
+            "internalConsole",
+            "integratedTerminal",
+            "externalTerminal"
+          ]
         }
       }
     }

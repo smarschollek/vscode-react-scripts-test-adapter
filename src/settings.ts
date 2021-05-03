@@ -13,6 +13,10 @@ function getOrDefault(section: string, fallback: string) {
 //   return new RegExp(/describe\(\'(?<describe>([^\>]*))\',/, "gm");
 // }
 
+export function getDebugOutput(): string {
+  return getOrDefault("debugOutput", "internalConsole");
+}
+
 export function getTestRegex(): RegExp {
   const text = getOrDefault("testRegex", "");
   if (text !== "") return new RegExp(text, "gm");
@@ -23,6 +27,13 @@ export function getTestEncoding(): "ascii" | "utf8" | "utf-8" | "utf16le" | "ucs
   return getOrDefault("testEncoding", "utf8") as "ascii" | "utf8" | "utf-8" | "utf16le" | "ucs2" | "ucs-2" | "base64" | "latin1" | "binary" | "hex" | null | undefined;
 }
 
+export function getBaseGlob(): string {
+  return getOrDefault("baseGlob", "src/**/*");
+}
 export function getTestGlob(): string {
-  return getOrDefault("testGlob", "src/**/*test.{js,jsx,ts,tsx}");
+  return getOrDefault("testGlob", ".test.{js,jsx,ts,tsx}");
+}
+
+export function getWatchGlob(): string {
+  return getOrDefault("watchGlob", ".{js,jsx,ts,tsx}");
 }
