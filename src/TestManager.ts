@@ -2,10 +2,11 @@ import { EventEmitter, Uri } from "vscode";
 import { RetireEvent, TestEvent, TestInfo, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo } from "vscode-test-adapter-api";
 import * as settings from "./settings";
 import {relative} from "path";
-import {readFile} from "fs";
-import {promisify} from "util";
 import { DebugRunner, TestRunner } from "./runner";
 import { WorkspaceWatcher } from "./WorkspaceWatcher";
+
+
+import {DescribeBlock, IParseResults, ItBlock, parse, ParsedNode} from 'jest-editor-support'
 
 export class TestManager {
 
@@ -28,7 +29,7 @@ export class TestManager {
       }
     })
     
-    this._root = this.createSuiteInfo(this.workspaceWatcher.workspace.name, this.workspaceWatcher.workspace.uri);
+    this._root = this.createSuiteInfo(this.workspaceWatcher.workspace.name, this.workspaceWatcher.workspace.uri, 0);
     this._suite.children.push(this._root)
     this._testId = 1;
   }
@@ -36,12 +37,17 @@ export class TestManager {
   public async loadTests(): Promise<TestSuiteInfo> {
     this._root.children = [];
 
-    for (const file of this.workspaceWatcher.getTestFiles()) { 
-      const suiteId = relative(this.workspaceWatcher.workspace.uri.fsPath, file.fsPath);
-      const suite = this.createSuiteInfo(suiteId, file);
+    const flattenList = settings.getFlattenList()
 
-      suite.children = await this.parseFileContent(file);
-      if(suite.children.length > 0) {
+    for (const file of this.workspaceWatcher.getTestFiles()) {      
+      const infos = await this.parseFileContent(file);
+      if(flattenList) {
+        this._root.children = this._root.children.concat(infos)
+      }
+      else {
+        const suiteId = relative(this.workspaceWatcher.workspace.uri.fsPath, file.fsPath);
+        const suite = this.createSuiteInfo(suiteId, file, 0);
+        suite.children = infos
         this._root.children.push(suite);
       }
     }
@@ -91,43 +97,76 @@ export class TestManager {
     return undefined;
   }
 
-  private async parseFileContent(file: Uri): Promise<TestInfo[]> {
-    const testEncoding = settings.getTestEncoding();
-    const testRegex = settings.getTestRegex();
-    const readFilePromise = promisify(readFile);
-		const content = await readFilePromise(file.fsPath, { encoding: testEncoding }) as string;
-    const lines = content.split('\n');
-    
-    const result = [];
-
-    for (let index = 0; index < lines.length; index++) {
-      const line = lines[index];
-      const match = testRegex.exec(line);
-      if(match && match.groups && match.groups["test"]) {
-        result.push(this.createTestInfo(this._testId++, file, match.groups["test"], index ));
-      }
-    }
-
-    return result;
+  private async parseFileContent(file: Uri): Promise<Array<TestInfo|TestSuiteInfo>> {   
+    const result = parse(file.fsPath)    
+    return this.buildTree(result, file);
   }
   
-  private createTestInfo(testId: number, file: Uri, label: string, lineNumber: number) : TestInfo {
+  private buildTree(parseResult: IParseResults, file: Uri) : Array<TestInfo|TestSuiteInfo> {
+    const result:Array<TestInfo|TestSuiteInfo> = []
+    
+    const info = this.convertParsedNode(parseResult.root, file)
+    if(info) {
+      if((info as TestSuiteInfo).children) {
+        return (info as TestSuiteInfo).children
+      }
+      else {
+        result.push(info)
+      }
+    }
+    
+    return result;
+  }
+
+  private convertParsedNode(node: ParsedNode, file: Uri): TestInfo|TestSuiteInfo|undefined {
+    if(node.type === "root") {
+      const info = this.createSuiteInfo('root', file, 0)
+      node.children?.forEach(child => {
+        const childInfo = this.convertParsedNode(child, file)
+        if(childInfo) {
+          info.children.push(childInfo)
+        }
+      })
+      return info;
+    }
+    
+    if(node.type === "describe") {
+      const info = this.createSuiteInfo((node as DescribeBlock).name, file, node.start.line - 1)
+      node.children?.forEach(child => {
+        const childInfo = this.convertParsedNode(child, file)
+        if(childInfo) {
+          info.children.push(childInfo)
+        }
+      })
+      return info;
+    }
+    
+    if(node.type === "it") {
+      return this.createTestInfo((node as ItBlock).name, file, node.start.line - 1)
+    }
+
+    return undefined
+  } 
+
+  private createTestInfo(label: string, file: Uri, line: number) : TestInfo {
     return {
       		type: "test",
-      		id: testId.toString(),
+      		id: (this._testId++).toString(),
       		label: label,
       		file: file.fsPath,
-          line: lineNumber
+          line: line
       	};
   }
 
-  private createSuiteInfo(suiteId: string, file: Uri) : TestSuiteInfo {
+  private createSuiteInfo(suiteId: string, file: Uri, line: number) : TestSuiteInfo {
     return {
       		type: "suite",
       		id: suiteId,
       		label: suiteId,
           file: file.fsPath,
-      		children: []
+      		children: [],
+          line: line,
+          debuggable: false
       	};
   }
 
@@ -144,12 +183,8 @@ export class TestManager {
   }
 
   private async debugTest(node: TestSuiteInfo | TestInfo): Promise<void> {  
-    if (node.type === 'suite') {
-		  // for (const child of node.children) {
-			//   await this.debugTest(child, testStatesEmitter);
-		  // }
-	  } else {
-      await DebugRunner(node);      
+    if (node.type !== 'suite') {
+      await DebugRunner(node)
 	  }
   }
 }

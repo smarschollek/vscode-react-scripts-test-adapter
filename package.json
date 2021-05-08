@@ -5,7 +5,7 @@
   "icon": "img/icon.png",
   "author": "Stephan Marschollek <stephan.marschollek@gmail.com>",
   "publisher": "smarschollek",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "license": "MIT",
   "homepage": "https://github.com/smarschollek/vscode-react-script-test-adapter",
   "repository": {
@@ -35,14 +35,15 @@
   "dependencies": {
     "anymatch": "^3.1.2",
     "chokidar": "^3.5.1",
-    "tslib": "^1.9.3",
-    "vscode-test-adapter-api": "^1.7.0",
-    "vscode-test-adapter-util": "^0.7.0"
+    "jest-editor-support": "^28.2.0",
+    "tslib": "^1.14.1",
+    "vscode-test-adapter-api": "^1.9.0",
+    "vscode-test-adapter-util": "^0.7.1"
   },
   "devDependencies": {
     "@types/vscode": "~1.23.0",
-    "typescript": "^3.5.3",
-    "vsce": "^1.65.0"
+    "typescript": "^3.9.9",
+    "vsce": "^1.88.0"
   },
   "engines": {
     "vscode": "^1.23.0"
@@ -68,11 +69,6 @@
           "type": "string",
           "scope": "resource"
         },
-        "reactScriptsTestAdapter.testRegex": {
-          "description": "regex to find tests in files. Default: /test\\(\\'(?<test>([^\\>]*))\\',/",
-          "type": "string",
-          "scope": "resource"
-        },
         "reactScriptsTestAdapter.baseGlob": {
           "description": "Glob used specify base for testGlob and watchGlob. Default: src/**/*",
           "type": "string",
@@ -88,9 +84,9 @@
           "type": "string",
           "scope": "resource"
         },
-        "reactScriptsTestAdapter.testEncoding": {
-          "description": "Test file encoding. Defaults: 'utf8'",
-          "type": "string",
+        "reactScriptsTestAdapter.flattenList": {
+          "description": "removes file name entries from tree list",
+          "type": "boolean",
           "scope": "resource"
         },
         "reactScriptsTestAdapter.debugOutput": {
