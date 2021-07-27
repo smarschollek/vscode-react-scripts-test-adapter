@@ -15,6 +15,7 @@ export const  TestRunner = async (node: TestInfo) : Promise<'skipped'|'passed'|'
 
     const process = spawn('node', [
       '.\\node_modules\\react-scripts\\bin\\react-scripts.js', 
+      join('.', 'node_modules', 'react-scripts', 'bin', 'react-scripts.js'),
       'test', 
       tuple.fileName,
       '--testNamePattern=' + fixPattern(node),
@@ -71,7 +72,7 @@ export const DebugRunner = async (node: TestInfo) : Promise<'skipped'|'passed'|'
       protocol: 'inspector',
       console: settings.getDebugOutput(),
       internalConsoleOptions: "neverOpen",
-      runtimeExecutable: `\${workspaceFolder}\\node_modules\\.bin\\react-scripts`,
+      runtimeExecutable: join('${workspaceFolder}', 'node_modules', '.bin', 'react-scripts')
     });
   })
 }
