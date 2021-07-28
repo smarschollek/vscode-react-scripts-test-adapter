@@ -2,9 +2,9 @@ import { EventEmitter, Uri } from "vscode";
 import { RetireEvent, TestEvent, TestInfo, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo } from "vscode-test-adapter-api";
 import * as settings from "./settings";
 import {relative} from "path";
-import { DebugRunner, TestRunner } from "./runner";
 import { WorkspaceWatcher } from "./WorkspaceWatcher";
-
+import {runnerManager} from "./RunnerManager";
+import {createDebugRunner, createTestRunner} from "./RunnerFactory";
 
 import {DescribeBlock, IParseResults, ItBlock, parse, ParsedNode} from 'jest-editor-support'
 
@@ -55,12 +55,24 @@ export class TestManager {
     return this._suite;
   }
 
-  public async runTests(tests: string[], testStatesEmitter: EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>): Promise<void> {
+  public async runTests(tests: string[], eventEmitter: EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>): Promise<void> {
     for (const suiteOrTestId of tests) {
       const node = this.findNodeById(this._suite, suiteOrTestId);
       if (node) {
-        await this.runTest(node, testStatesEmitter);
+        this.parseNodeTree(node, eventEmitter)
       }
+    }
+
+    runnerManager.start()
+  }
+
+  private parseNodeTree(node : TestInfo | TestSuiteInfo, eventEmitter: EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>) {
+    if (node.type === 'suite') {
+      for (const child of node.children) {
+        this.parseNodeTree(child, eventEmitter);
+      }
+    } else {
+      runnerManager.addRunner(createTestRunner(node, eventEmitter))
     }
   }
 
@@ -170,21 +182,9 @@ export class TestManager {
       	};
   }
 
-  private async runTest(node: TestSuiteInfo | TestInfo, testStatesEmitter: EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>): Promise<void> {  
-    if (node.type === 'suite') {
-		  for (const child of node.children) {
-			  this.runTest(child, testStatesEmitter);
-		  }
-	  } else {
-      testStatesEmitter.fire(<TestEvent>{ type: "test", test: node.id, state: "running" });
-      const result = await TestRunner(node);
-      testStatesEmitter.fire(<TestEvent>{ type: "test", test: node.id, state: result });
-	  }
-  }
-
   private async debugTest(node: TestSuiteInfo | TestInfo): Promise<void> {  
     if (node.type !== 'suite') {
-      await DebugRunner(node)
+      await createDebugRunner(node).execute()
 	  }
   }
 }

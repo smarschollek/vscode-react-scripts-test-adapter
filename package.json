@@ -99,6 +99,14 @@
             "integratedTerminal",
             "externalTerminal"
           ]
+        },
+        "reactScriptsTestAdapter.maxTestRunner": {
+          "description": "Maximal amount of child process to run tests",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 50,
+          "type": "number",
+          "scope": "resource"
         }
       }
     }
