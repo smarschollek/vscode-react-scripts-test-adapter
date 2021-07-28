@@ -5,7 +5,7 @@
   "icon": "img/icon.png",
   "author": "Stephan Marschollek <stephan.marschollek@gmail.com>",
   "publisher": "smarschollek",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "license": "MIT",
   "homepage": "https://github.com/smarschollek/vscode-react-script-test-adapter",
   "repository": {
@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "anymatch": "^3.1.2",
-    "chokidar": "^3.5.1",
+    "chokidar": "^3.5.2",
     "jest-editor-support": "^28.2.0",
     "tslib": "^1.14.1",
     "vscode-test-adapter-api": "^1.9.0",
