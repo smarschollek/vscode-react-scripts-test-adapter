@@ -7,13 +7,13 @@
   "publisher": "smarschollek",
   "version": "0.0.8",
   "license": "MIT",
-  "homepage": "https://github.com/smarschollek/vscode-react-script-test-adapter",
+  "homepage": "https://github.com/smarschollek/vscode-react-scripts-test-adapter",
   "repository": {
     "type": "git",
-    "url": "https://github.com/smarschollek/vscode-react-script-test-adapter.git"
+    "url": "https://github.com/smarschollek/vscode-react-scripts-test-adapter.git"
   },
   "bugs": {
-    "url": "https://github.com/smarschollek/vscode-react-script-test-adapter/issues"
+    "url": "https://github.com/smarschollek/vscode-react-scripts-test-adapter/issues"
   },
   "categories": [
     "Other"
