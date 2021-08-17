@@ -4,6 +4,7 @@ import { spawn } from "child_process"
 import { parse, join } from "path"
 import { debug, EventEmitter, Uri, workspace, WorkspaceFolder } from "vscode"
 import * as settings from "./settings"
+import { decorationBuilder } from './DecorationBuilder'
 
 export const createTestRunner = (node: TestInfo, eventEmitter: EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>) : IRunner => {
   
@@ -23,13 +24,15 @@ export const createTestRunner = (node: TestInfo, eventEmitter: EventEmitter<Test
         tuple.fileName,
         '--testNamePattern=' + fixPattern(node),
         '--watchAll=false', 
-        '--no-cache'
+        '--no-cache',
+        '--json'
       ], {
         cwd: tuple.workspaceFolder.uri.fsPath
       })
 
+      let result : string = ''
       process.stdout.on('data', (data) => {
-        console.log(data.toString())
+        result += data.toString()
       })
 
       process.on('close', (code) => {
@@ -37,14 +40,14 @@ export const createTestRunner = (node: TestInfo, eventEmitter: EventEmitter<Test
           eventEmitter.fire({ type: "test", test: node.id, state: "passed" });
         }
         else {
-          eventEmitter.fire({ type: "test", test: node.id, state: "failed" });
+          eventEmitter.fire({ type: "test", test: node.id, state: "failed", decorations: [ decorationBuilder.build(tuple.fileName, result) ] });
         }
         resolve();
       })
     })
   }
   
-  eventEmitter.fire({ type: "test", test: node.id, state: "running" });
+  eventEmitter.fire({ type: "test", test: node.id, state: "running", decorations: [] });
 
   return {
     node,

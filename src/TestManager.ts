@@ -56,6 +56,8 @@ export class TestManager {
   }
 
   public async runTests(tests: string[], eventEmitter: EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>): Promise<void> {
+    eventEmitter.fire({ type: 'started', tests: tests });
+
     for (const suiteOrTestId of tests) {
       const node = this.findNodeById(this._suite, suiteOrTestId);
       if (node) {
@@ -64,6 +66,8 @@ export class TestManager {
     }
 
     runnerManager.start()
+
+    eventEmitter.fire({ type: 'finished' });
   }
 
   private parseNodeTree(node : TestInfo | TestSuiteInfo, eventEmitter: EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>) {
