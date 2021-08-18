@@ -65,9 +65,8 @@ export class TestManager {
       }
     }
 
+    runnerManager.onComplete = () => eventEmitter.fire({ type: 'finished' })
     runnerManager.start()
-
-    eventEmitter.fire({ type: 'finished' });
   }
 
   private parseNodeTree(node : TestInfo | TestSuiteInfo, eventEmitter: EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>) {

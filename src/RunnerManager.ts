@@ -11,6 +11,8 @@ class RunnerManager {
   private _activeRunner = 0
   private _runner: IRunner[] = []
 
+  public onComplete? : () => void
+
   public addRunner = (runner: IRunner) => {
     this._runner.push(runner)
   }
@@ -33,6 +35,10 @@ class RunnerManager {
     } 
 
     if(this._activeRunner === 0) {
+      if(this.onComplete)  {
+        this.onComplete()
+      }
+      
       return
     } 
 
