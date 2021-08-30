@@ -1,193 +1,244 @@
-import { EventEmitter, Uri } from "vscode";
-import { RetireEvent, TestEvent, TestInfo, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo } from "vscode-test-adapter-api";
-import * as settings from "./settings";
-import {relative} from "path";
-import { WorkspaceWatcher } from "./WorkspaceWatcher";
-import {runnerManager} from "./RunnerManager";
-import {createDebugRunner, createTestRunner} from "./RunnerFactory";
+import { EventEmitter, WorkspaceFolder, debug, OutputChannel } from "vscode";
+import { TestEvent, TestInfo, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo } from "vscode-test-adapter-api";
+import RunnerManager, { IRunner } from './RunnerManager'
+import { join, parse } from "path"
+import { spawn, ChildProcessWithoutNullStreams } from "child_process"
+import { JestTotalResults, TestFileAssertionStatus, TestReconciler } from "jest-editor-support";
+import { Log } from "vscode-test-adapter-util";
+import { getDebugOutput } from './settings'
 
-import {DescribeBlock, IParseResults, ItBlock, parse, ParsedNode} from 'jest-editor-support'
+type RunnerInfo = {
+  id: string,
+  file?: string,
+  runAll: boolean,
+  testIds: string[]
+}
 
-export class TestManager {
+export default class TestManager {
+  private runnerManager : RunnerManager
+  private testReconciler: TestReconciler
+  private isRunningFlag: boolean
 
-  private _suite: TestSuiteInfo;
-  private _testId: number;
-  private _root: TestSuiteInfo;
+  public get isRunning() { return this.isRunningFlag }
 
-  constructor(private workspaceWatcher: WorkspaceWatcher, private retireEmiter: EventEmitter<RetireEvent>) {  
-    this._suite = {
-      type: "suite",
-      id: 'root',
-      label: 'root',
-      children: []
-    };
+  public constructor(private eventEmitter: EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>, private workspace: WorkspaceFolder, private log: Log, private outputChannel: OutputChannel) {
+    this.runnerManager = new RunnerManager()
+    this.testReconciler = new TestReconciler()
+    this.isRunningFlag = false
+  }
 
-    workspaceWatcher.onTestsRetired((file) => {
-      const node = this.findNodeByFile(this._suite, file.fsPath);
-      if(node) {
-        this.retireEmiter.fire({tests: [node.id]})
-      }
+  public async runTests(tests: string[], testSuiteInfo: TestSuiteInfo) {
+    const nodes : TestSuiteInfo[] = this.parseTestsToNodes(tests, testSuiteInfo)
+    const infos : RunnerInfo[] = this.parseNodesToRunnerInfo(tests, nodes)
+    
+    this.isRunningFlag = true;
+    this.eventEmitter.fire({ type: 'started', tests: tests });
+
+    for(const info of infos) {
+      this.runnerManager.addRunner(this.createRunner(info))  
+    }
+    
+    this.runnerManager.onComplete(() => {
+      this.eventEmitter.fire({  type: 'finished' })
+      this.isRunningFlag = false;
     })
+
+    this.outputChannel.clear()
+    this.runnerManager.start()    
     
-    this._root = this.createSuiteInfo(this.workspaceWatcher.workspace.name, this.workspaceWatcher.workspace.uri, 0);
-    this._suite.children.push(this._root)
-    this._testId = 1;
-  }
-  
-  public async loadTests(): Promise<TestSuiteInfo> {
-    this._root.children = [];
-
-    const flattenList = settings.getFlattenList()
-
-    for (const file of this.workspaceWatcher.getTestFiles()) {      
-      const infos = await this.parseFileContent(file);
-      if(flattenList) {
-        this._root.children = this._root.children.concat(infos)
-      }
-      else {
-        const suiteId = relative(this.workspaceWatcher.workspace.uri.fsPath, file.fsPath);
-        const suite = this.createSuiteInfo(suiteId, file, 0);
-        suite.children = infos
-        this._root.children.push(suite);
-      }
-    }
-
-    return this._suite;
   }
 
-  public async runTests(tests: string[], eventEmitter: EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>): Promise<void> {
-    eventEmitter.fire({ type: 'started', tests: tests });
+  private parseNodesToRunnerInfo(tests: string[], nodes: TestSuiteInfo[]) : RunnerInfo[] {
+    const infos : RunnerInfo[] = []
+    for(const node of nodes) {
+      infos.push(this.buildRunnerInfo(tests, node))
+    }  
 
-    for (const suiteOrTestId of tests) {
-      const node = this.findNodeById(this._suite, suiteOrTestId);
-      if (node) {
-        this.parseNodeTree(node, eventEmitter)
+    return infos
+  }
+
+  private parseTestsToNodes(tests: string[], testSuiteInfo: TestSuiteInfo) : TestSuiteInfo[] {
+    const nodes : TestSuiteInfo[] = []
+    for(const test of tests) {
+      const node = this.getTestSuites(test, testSuiteInfo)
+      if(node) {
+        if(!nodes.includes(node)) {
+          nodes.push(node)
+        }
       }
     }
 
-    runnerManager.onComplete = () => eventEmitter.fire({ type: 'finished' })
-    runnerManager.start()
+    return nodes
   }
 
-  private parseNodeTree(node : TestInfo | TestSuiteInfo, eventEmitter: EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>) {
-    if (node.type === 'suite') {
-      for (const child of node.children) {
-        this.parseNodeTree(child, eventEmitter);
-      }
-    } else {
-      runnerManager.addRunner(createTestRunner(node, eventEmitter))
-    }
+  public cancelTests() {
+    this.runnerManager.cancel()
+    this.eventEmitter.fire({  type: 'finished' })
   }
 
-  public async debugTests(tests: string[]): Promise<void> {
-    for (const suiteOrTestId of tests) {
-      const node = this.findNodeById(this._suite, suiteOrTestId);
-      if (node) {
-        await this.debugTest(node);
-      }
-    }
-  }
-
-  private findNodeByFile(searchNode: TestSuiteInfo | TestInfo, file: string): TestSuiteInfo | TestInfo | undefined {
-    if (searchNode.file === file) {
-      return searchNode;
-    } else if (searchNode.type === 'suite') {
-      for (const child of searchNode.children) {
-        const found = this.findNodeByFile(child, file);
-        if (found) return found;
-      }
-    }
-    return undefined;
-  }
-
-  private findNodeById(searchNode: TestSuiteInfo | TestInfo, id: string): TestSuiteInfo | TestInfo | undefined {
-    if (searchNode.id === id) {
-      return searchNode;
-    } else if (searchNode.type === 'suite') {
-      for (const child of searchNode.children) {
-        const found = this.findNodeById(child, id);
-        if (found) return found;
-      }
-    }
-    return undefined;
-  }
-
-  private async parseFileContent(file: Uri): Promise<Array<TestInfo|TestSuiteInfo>> {   
-    const result = parse(file.fsPath)    
-    return this.buildTree(result, file);
-  }
-  
-  private buildTree(parseResult: IParseResults, file: Uri) : Array<TestInfo|TestSuiteInfo> {
-    const result:Array<TestInfo|TestSuiteInfo> = []
+  public debugTests(tests: string[], testSuiteInfo: TestSuiteInfo) {
+    const nodes : TestSuiteInfo[] = this.parseTestsToNodes(tests, testSuiteInfo)
+    const infos : RunnerInfo[] = this.parseNodesToRunnerInfo(tests, nodes)
     
-    const info = this.convertParsedNode(parseResult.root, file)
-    if(info) {
-      if((info as TestSuiteInfo).children) {
-        return (info as TestSuiteInfo).children
-      }
-      else {
-        result.push(info)
-      }
+    infos.forEach(info => {
+      debug.startDebugging(this.workspace, {
+        name: 'react-scripts-test-adapter',
+        type: 'node',
+        request: 'launch',
+        args: [
+          'test',
+          parse(info.file!).base,
+          '--testNamePattern=' + info.testIds.map(x => (`^${x}$`)).join('|'),
+          '--bail',
+          '--runInBand',
+          '--no-cache',
+          '--watchAll=false'
+        ],
+        protocol: 'inspector',
+        console: getDebugOutput(),
+        internalConsoleOptions: "neverOpen",
+        runtimeExecutable: join('${workspaceFolder}', 'node_modules', '.bin', 'react-scripts')
+      });
+    })
+  }
+
+  private createRunner(info : RunnerInfo) : IRunner {
+    let process : ChildProcessWithoutNullStreams
+
+    const cancelTest = () => {
+      process.kill()
+    }
+
+    const runTest = () : Promise<void> => {
+      return new Promise<void>((resolve) => {
+        
+        const args = [
+          join('.', 'node_modules', 'react-scripts', 'bin', 'react-scripts.js'),
+          'test'
+        ]
+        if(info.file) {
+          args.push(parse(info.file).base)
+        }
+
+        if(!info.runAll) {
+          args.push('--testNamePattern=' + info.testIds.map(x => (`^${x}$`)).join('|'))
+        }
+
+        args.push('--watchAll=false')
+        args.push('--no-cache')
+        args.push('--json')
+        args.push('--testLocationInResults')
+
+        process = spawn('node', args, {
+          cwd: this.workspace.uri.fsPath
+        })
+        
+        this.log.info('Run: ' + args.join(' '))
+
+        let stdout = ""
+        process.stdout.on('data', (data) => {
+          stdout += data.toString()
+        })
+
+        process.stderr.on('data', (data) => {
+          this.outputChannel.append(this.trimAnsi(data.toString()))
+        })
+
+        process.on('close', (code: number | null) => {
+          if(code === null) {
+            resolve();
+            return
+          }
+
+          const totalResult : JestTotalResults = JSON.parse(stdout)
+          const assertionStates : TestFileAssertionStatus[] = this.testReconciler.updateFileWithJestStatus(totalResult)
+          
+          assertionStates.forEach(assertionState => {
+            assertionState.assertions?.forEach(assertion => {
+              if(assertion.status === 'KnownFail' || assertion.status === 'KnownSuccess') {
+                const state = this.parseToTestState(assertion.status)
+                const event : TestEvent = { type: "test", test: assertion.fullName, state: state}
+    
+                if(state === "failed") {
+                  event.tooltip = this.trimAnsi(assertion.shortMessage)
+                  event.decorations = [
+                    {
+                      line: Number(assertion.line) - 1,
+                      message: this.trimAnsi(assertion.message),
+                      hover: this.trimAnsi(assertion.shortMessage)
+                    }
+                  ]
+                }
+
+                this.eventEmitter.fire(event)
+              }
+            })
+          })
+          resolve();
+        })
+      })
     }
     
+    info.testIds.forEach(x => this.eventEmitter.fire({ type: "test", test: x, state: "running" }))
+
+    return {
+      execute: runTest,
+      cancel: cancelTest
+    }
+  }
+
+  private trimAnsi(text?: string): string {
+    if(text) {
+      return text.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '')
+    }
+    return ''
+  }
+
+  private parseToTestState(jestState: string) : 'passed' | 'failed' {
+    if(jestState === 'KnownSuccess') {
+      return "passed"
+    }
+    return "failed"
+  }
+
+  private buildRunnerInfo(tests: string[], node: TestSuiteInfo) : RunnerInfo {
+    const result : RunnerInfo = {
+      id: node.id,
+      file: node.file,
+      runAll: tests.length === 1 && tests[0] === node.id,
+      testIds: this.getTestIds(tests, node.children)
+    } 
+
     return result;
   }
 
-  private convertParsedNode(node: ParsedNode, file: Uri): TestInfo|TestSuiteInfo|undefined {
-    if(node.type === "root") {
-      const info = this.createSuiteInfo('root', file, 0)
-      node.children?.forEach(child => {
-        const childInfo = this.convertParsedNode(child, file)
-        if(childInfo) {
-          info.children.push(childInfo)
+  private getTestSuites (test: string, node: TestSuiteInfo | TestInfo) : TestSuiteInfo | undefined  {
+    if (node.id === test) {
+      return node as TestSuiteInfo;
+    } else if (node.type === 'suite') {
+      for (const child of node.children) {
+        const found = this.getTestSuites(test, child);
+        if (found) {
+          return child as TestSuiteInfo;
         }
-      })
-      return info;
+      }
     }
-    
-    if(node.type === "describe") {
-      const info = this.createSuiteInfo((node as DescribeBlock).name, file, node.start.line - 1)
-      node.children?.forEach(child => {
-        const childInfo = this.convertParsedNode(child, file)
-        if(childInfo) {
-          info.children.push(childInfo)
-        }
-      })
-      return info;
-    }
-    
-    if(node.type === "it") {
-      return this.createTestInfo((node as ItBlock).name, file, node.start.line - 1)
-    }
-
-    return undefined
-  } 
-
-  private createTestInfo(label: string, file: Uri, line: number) : TestInfo {
-    return {
-      		type: "test",
-      		id: (this._testId++).toString(),
-      		label: label,
-      		file: file.fsPath,
-          line: line
-      	};
+    return undefined;
   }
 
-  private createSuiteInfo(suiteId: string, file: Uri, line: number) : TestSuiteInfo {
-    return {
-      		type: "suite",
-      		id: suiteId,
-      		label: suiteId,
-          file: file.fsPath,
-      		children: [],
-          line: line,
-          debuggable: false
-      	};
-  }
+  private getTestIds (tests: string[], nodes: (TestSuiteInfo|TestInfo)[]) : string[] {
+    const result : string[] = []
+    for(const node of nodes) {
+      if(node.type === "test") {
+        if(tests.find(x => node.id.includes(x)) || tests.includes('root')) {
+          result.push(node.id)
+        }
+      } else if (node.type === "suite") {
+        this.getTestIds(tests, node.children).forEach(x => result.push(x))
+      }
+      
+    }
 
-  private async debugTest(node: TestSuiteInfo | TestInfo): Promise<void> {  
-    if (node.type !== 'suite') {
-      await createDebugRunner(node).execute()
-	  }
+    return result;
   }
 }

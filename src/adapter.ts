@@ -1,60 +1,66 @@
 import * as vscode from 'vscode';
 import { TestAdapter, TestLoadStartedEvent, TestLoadFinishedEvent, TestRunStartedEvent, TestRunFinishedEvent, TestSuiteEvent, TestEvent, RetireEvent, TestSuiteInfo } from 'vscode-test-adapter-api';
 import { Log } from 'vscode-test-adapter-util';
-import { TestManager } from './TestManager';
-import {WorkspaceWatcher} from './WorkspaceWatcher';
+
+import ProjectManager from './ProjectManager'
+import TestManager from './TestManager'
 
 export class ReactScriptsAdapter implements TestAdapter {
 
-	private disposables: { dispose(): void }[] = [];
-	private loadedTests: TestSuiteInfo | undefined;
-	private readonly testManager: TestManager;
-
+	private disposables: { dispose(): void }[] = [];	
 	private readonly testsEmitter = new vscode.EventEmitter<TestLoadStartedEvent | TestLoadFinishedEvent>();
 	private readonly testStatesEmitter = new vscode.EventEmitter<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent>();
 	private readonly autorunEmitter = new vscode.EventEmitter<void>();
 	private readonly retireEmitter = new vscode.EventEmitter<RetireEvent>();
-	private readonly fileWatcher: WorkspaceWatcher;
-	
+
+	private projectManager: ProjectManager;
+	private suite: TestSuiteInfo | undefined;
+	private testManager: TestManager;
+
 	get tests(): vscode.Event<TestLoadStartedEvent | TestLoadFinishedEvent> { return this.testsEmitter.event; }
 	get testStates(): vscode.Event<TestRunStartedEvent | TestRunFinishedEvent | TestSuiteEvent | TestEvent> { return this.testStatesEmitter.event; }
 	get autorun(): vscode.Event<void> | undefined { return this.autorunEmitter.event; }
 	get retire(): vscode.Event<RetireEvent> { return this.retireEmitter.event; }
 
 	constructor(public readonly workspace: vscode.WorkspaceFolder,private readonly log: Log) {
-		this.log.info('Initializing react-scripts test adapter');
+		
+		const runnerOutputChannel = vscode.window.createOutputChannel(`React Script Test Adapter (${workspace.name})`)
 
-		this.fileWatcher = new WorkspaceWatcher(workspace);
-		
-		this.fileWatcher.onTestFilesChanged(() => {
-			this.load();
-		})
-		
-		this.testManager = new TestManager(this.fileWatcher, this.retireEmitter);		
+		this.log.info('Initializing react-scripts test adapter');		
+
+		this.projectManager = new ProjectManager(this.workspace, this.log)
+		this.projectManager.onFilesChanged(() => this.load())
+		this.testManager = new TestManager(this.testStatesEmitter, this.workspace, this.log, runnerOutputChannel)
+
 		this.disposables.push(this.testsEmitter);
 		this.disposables.push(this.testStatesEmitter);
 		this.disposables.push(this.autorunEmitter);	
-
-		this.loadedTests = undefined;
 	}
 
 	async load(): Promise<void> {
+		this.log.info('Loading tests...');		
 		this.testsEmitter.fire(<TestLoadStartedEvent>{ type: 'started' });
-  	await this.fileWatcher.scanWorkspace();
-		this.loadedTests = await this.testManager.loadTests();
-		this.testsEmitter.fire(<TestLoadFinishedEvent>{ type: 'finished', suite: this.loadedTests });
+		this.suite = await this.projectManager.loadTestSuite()
+		this.testsEmitter.fire(<TestLoadFinishedEvent>{ type: 'finished', suite: this.suite });
 	}
 
 	async run(tests: string[]): Promise<void> {
-		this.testManager.runTests(tests, this.testStatesEmitter);
+		if(this.testManager.isRunning) {
+			this.log.info('Test run is already in progress');
+			return
+		}
+
+		this.log.info('Running tests... ' + JSON.stringify(tests));
+		this.testManager.runTests(tests, this.suite!)
 	}
 
 	async debug(tests: string[]): Promise<void> {
-		this.testManager.debugTests(tests);
+		this.testManager.debugTests(tests, this.suite!)
 	}
 
 	cancel(): void {
-		//throw new Error("Method not implemented.");
+		this.testManager.cancelTests()
+		this.log.info('Cancel all running test sessions')
 	}
 
 	dispose(): void {		this.cancel();

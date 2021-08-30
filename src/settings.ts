@@ -22,11 +22,6 @@ export function getWatchGlob(): string {
   return getOrDefault<string>("watchGlob", ".{js,jsx,ts,tsx}");
 }
 
-export function getFlattenList(): boolean {
-  const value = getOrDefault<boolean>("flattenList", false);
-  return value
-}
-
 export function getMaxTestRunner(): number {
   const value = getOrDefault<number>("maxTestRunner", 5);
   return value

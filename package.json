@@ -5,7 +5,7 @@
   "icon": "img/icon.png",
   "author": "Stephan Marschollek <stephan.marschollek@gmail.com>",
   "publisher": "smarschollek",
-  "version": "0.0.9",
+  "version": "0.1.0",
   "license": "MIT",
   "homepage": "https://github.com/smarschollek/vscode-react-scripts-test-adapter",
   "repository": {
@@ -23,27 +23,34 @@
     "testing",
     "react-scripts"
   ],
-  "main": "out/main.js",
+  "main": "dist/main.js",
   "scripts": {
     "clean": "rimraf out *.vsix",
     "build": "tsc",
     "watch": "tsc -w",
     "rebuild": "npm run clean && npm run build",
     "package": "vsce package",
-    "publish": "vsce publish"
+    "publish": "vsce publish",
+    "vscode:prepublish": "webpack --mode production",
+    "webpack": "webpack --mode development",
+    "webpack-dev": "webpack --mode development --watch",
+    "test-compile": "tsc -p ./"
   },
   "dependencies": {
     "anymatch": "^3.1.2",
-    "chokidar": "^3.5.2",
     "jest-editor-support": "^28.2.0",
+    "rimraf": "^3.0.2",
     "tslib": "^1.14.1",
     "vscode-test-adapter-api": "^1.9.0",
     "vscode-test-adapter-util": "^0.7.1"
   },
   "devDependencies": {
     "@types/vscode": "~1.23.0",
+    "ts-loader": "^9.2.5",
     "typescript": "^3.9.9",
-    "vsce": "^1.88.0"
+    "vsce": "^1.88.0",
+    "webpack": "^5.51.1",
+    "webpack-cli": "^4.8.0"
   },
   "engines": {
     "vscode": "^1.23.0"
@@ -82,11 +89,6 @@
         "reactScriptsTestAdapter.watchGlob": {
           "description": "Glob used by the filewatcher. Default: .{js,jsx,ts,tsx}",
           "type": "string",
-          "scope": "resource"
-        },
-        "reactScriptsTestAdapter.flattenList": {
-          "description": "removes file name entries from tree list",
-          "type": "boolean",
           "scope": "resource"
         },
         "reactScriptsTestAdapter.debugOutput": {

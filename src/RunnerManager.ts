@@ -1,44 +1,51 @@
-import { TestInfo } from "vscode-test-adapter-api";
+import { EventEmitter } from "vscode";
 import * as settings from "./settings";
 
 export interface IRunner {
-  node: TestInfo,
   execute : () => Promise<void>
+  cancel : () => void
 }
 
-class RunnerManager {
-  private readonly _maxParallelRunner = settings.getMaxTestRunner()
-  private _activeRunner = 0
-  private _runner: IRunner[] = []
+export default class RunnerManager {
+  private readonly maxParallelRunner = settings.getMaxTestRunner()
+  private activeRunner: IRunner[] = []
+  private runner: IRunner[] = []
+  private onCompleteEmitter : EventEmitter<void> = new EventEmitter<void>()
 
-  public onComplete? : () => void
 
-  public addRunner = (runner: IRunner) => {
-    this._runner.push(runner)
+
+  public get onComplete() { return this.onCompleteEmitter.event }
+
+  public addRunner(runner: IRunner) {
+    this.runner.push(runner)
   }
 
-  public start = () => {
+  public start() {
     this.startRunnerLoop()
   }
 
-  startRunnerLoop() {
-    if(this._runner.length > 0) {
-      while(this._activeRunner < this._maxParallelRunner) {
-        ++this._activeRunner
-        if(this._runner.length > 0) {
-          const runner = this._runner.splice(0,1)[0]
-          runner.execute().then(() => {
-            --this._activeRunner
-          })
-        }
-      }
-    } 
+  public cancel() {
+    this.activeRunner.forEach(x => x.cancel())
+    this.activeRunner = []
+  }
 
-    if(this._activeRunner === 0) {
-      if(this.onComplete)  {
-        this.onComplete()
-      }
+  private startRunnerLoop() {
+    while(this.activeRunner.length < this.maxParallelRunner && this.runner.length > 0) {
       
+      if(this.runner.length > 0) {
+        const runner = this.runner.splice(0,1)[0]
+        this.activeRunner.push(runner)
+        runner.execute().then(() => {
+          const index = this.activeRunner.findIndex(x => x === runner)
+          if(index !== -1) {
+            this.activeRunner.splice(index, 1)
+          }
+        })
+      }
+    }
+
+    if(this.activeRunner.length === 0) {
+      this.onCompleteEmitter.fire()      
       return
     } 
 
@@ -47,5 +54,3 @@ class RunnerManager {
     }, 1000)
   }
 }
-
-export const runnerManager = new RunnerManager()
