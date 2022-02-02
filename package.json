@@ -5,7 +5,7 @@
   "icon": "img/icon.png",
   "author": "Stephan Marschollek <stephan.marschollek@gmail.com>",
   "publisher": "smarschollek",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "license": "MIT",
   "homepage": "https://github.com/smarschollek/vscode-react-scripts-test-adapter",
   "repository": {
@@ -23,29 +23,27 @@
     "testing",
     "react-scripts"
   ],
-  "main": "dist/main.js",
+  "main": "out/main.js",
   "scripts": {
     "clean": "rimraf out *.vsix",
-    "build": "tsc",
-    "watch": "tsc -w",
+    "build": "npm run -S esbuild-base -- --sourcemap",
+    "watch": "npm run -S esbuild-base -- --sourcemap --watch",
     "rebuild": "npm run clean && npm run build",
     "package": "vsce package",
     "publish": "vsce publish",
-    "vscode:prepublish": "webpack --mode production",
-    "webpack": "webpack --mode development",
-    "webpack-dev": "webpack --mode development --watch",
+    "esbuild-base": "rimraf out && esbuild ./src/main.ts --bundle --outfile=out/main.js --external:vscode --external:babel-preset-current-node-syntax --external:./processChild --external:./worker --external:@babel/plugin-syntax-typescript --format=cjs --platform=node",
     "test-compile": "tsc -p ./"
   },
   "dependencies": {
-    "anymatch": "3.1.2",
     "jest-editor-support": "30.0.2",
-    "rimraf": "3.0.2",
-    "tslib": "2.3.1",
     "vscode-test-adapter-api": "1.9.0",
     "vscode-test-adapter-util": "0.7.1"
   },
   "devDependencies": {
+    "tslib": "2.3.1",
+    "rimraf": "3.0.2",
     "@types/vscode": "1.63.2",
+    "esbuild": "^0.14.18",
     "ts-loader": "9.2.5",
     "typescript": "4.5.5",
     "vsce": "2.6.6",
@@ -53,13 +51,13 @@
     "webpack-cli": "4.8.0"
   },
   "engines": {
-    "vscode": "^1.23.0"
+    "vscode": "^1.63.2"
   },
   "extensionDependencies": [
     "hbenl.vscode-test-explorer"
   ],
   "activationEvents": [
-    "*"
+    "onStartupFinished"
   ],
   "contributes": {
     "configuration": {

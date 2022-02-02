@@ -4,4 +4,3 @@ package-lock.json
 tsconfig.json
 .vscode/**
 .gitignore
-!node_modules/jest-editor-support
