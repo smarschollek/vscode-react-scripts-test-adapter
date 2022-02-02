@@ -5,7 +5,7 @@ import { join, parse } from "path"
 import { spawn, ChildProcessWithoutNullStreams } from "child_process"
 import { JestTotalResults, TestFileAssertionStatus, TestReconciler } from "jest-editor-support";
 import { Log } from "vscode-test-adapter-util";
-import { getDebugOutput } from './settings'
+import { getDebugOutput, getUseCraco } from './settings'
 
 type RunnerInfo = {
   id: string,
@@ -97,9 +97,25 @@ export default class TestManager {
         protocol: 'inspector',
         console: getDebugOutput(),
         internalConsoleOptions: "neverOpen",
-        runtimeExecutable: join('${workspaceFolder}', 'node_modules', '.bin', 'react-scripts')
+        runtimeExecutable: this.getRuntimeExecutable()
       });
     })
+  }
+
+  private getRuntimeExecutable() {
+    if(getUseCraco()) {
+      return join('${workspaceFolder}', 'node_modules', '.bin', 'craco')
+    } else {
+      return join('${workspaceFolder}', 'node_modules', '.bin', 'react-scripts')
+    }
+  }
+
+  private getRunnerExecutable() {
+    if(getUseCraco()) {
+      return join('.', 'node_modules', '@craco', 'craco','bin', 'craco.js')
+    } else {
+      return join('.', 'node_modules', 'react-scripts', 'bin', 'react-scripts.js')
+    }
   }
 
   private createRunner(info : RunnerInfo) : IRunner {
@@ -113,7 +129,7 @@ export default class TestManager {
       return new Promise<void>((resolve) => {
         
         const args = [
-          join('.', 'node_modules', 'react-scripts', 'bin', 'react-scripts.js'),
+          this.getRunnerExecutable(),
           'test'
         ]
         if(info.file) {

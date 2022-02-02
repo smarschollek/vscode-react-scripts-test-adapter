@@ -26,3 +26,8 @@ export function getMaxTestRunner(): number {
   const value = getOrDefault<number>("maxTestRunner", 5);
   return value
 }
+
+export function getUseCraco(): boolean {
+  const value = getOrDefault<boolean>("useCraco", false);
+  return value
+}

@@ -5,7 +5,7 @@
   "icon": "img/icon.png",
   "author": "Stephan Marschollek <stephan.marschollek@gmail.com>",
   "publisher": "smarschollek",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "homepage": "https://github.com/smarschollek/vscode-react-scripts-test-adapter",
   "repository": {
@@ -101,6 +101,11 @@
             "integratedTerminal",
             "externalTerminal"
           ]
+        },
+        "reactScriptsTestAdapter.useCraco": {
+          "description": "Use craco instead of react-scripts",
+          "scope": "resource",
+          "type": "boolean"
         },
         "reactScriptsTestAdapter.maxTestRunner": {
           "description": "Maximal amount of child process to run tests",
