@@ -223,11 +223,18 @@ export default class TestManager {
         }
       }
     }
+
     return undefined;
   }
 
   private getTestIds (tests: string[], nodes: (TestSuiteInfo|TestInfo)[]) : string[] {
     const result : string[] = []
+    
+    if(!nodes) {
+      console.log('nodes are undefined - this prevents the tests from running.');
+      return [];
+    }
+
     for(const node of nodes) {
       if(node.type === "test") {
         if(tests.find(x => node.id.includes(x)) || tests.includes('root')) {

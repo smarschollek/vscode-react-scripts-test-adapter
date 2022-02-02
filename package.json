@@ -37,20 +37,20 @@
     "test-compile": "tsc -p ./"
   },
   "dependencies": {
-    "anymatch": "^3.1.2",
-    "jest-editor-support": "^28.2.0",
-    "rimraf": "^3.0.2",
-    "tslib": "^1.14.1",
-    "vscode-test-adapter-api": "^1.9.0",
-    "vscode-test-adapter-util": "^0.7.1"
+    "anymatch": "3.1.2",
+    "jest-editor-support": "30.0.2",
+    "rimraf": "3.0.2",
+    "tslib": "2.3.1",
+    "vscode-test-adapter-api": "1.9.0",
+    "vscode-test-adapter-util": "0.7.1"
   },
   "devDependencies": {
-    "@types/vscode": "~1.23.0",
-    "ts-loader": "^9.2.5",
-    "typescript": "^3.9.9",
-    "vsce": "^1.88.0",
-    "webpack": "^5.51.1",
-    "webpack-cli": "^4.8.0"
+    "@types/vscode": "1.63.2",
+    "ts-loader": "9.2.5",
+    "typescript": "4.5.5",
+    "vsce": "2.6.6",
+    "webpack": "5.51.1",
+    "webpack-cli": "4.8.0"
   },
   "engines": {
     "vscode": "^1.23.0"
